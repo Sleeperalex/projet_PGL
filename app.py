@@ -6,6 +6,8 @@ import subprocess
 import json
 import os
 
+from metrics import *
+
 # Configuration file to store last searched coin
 CONFIG_FILE = 'config.json'
 
@@ -118,6 +120,19 @@ app.layout = html.Div([
         dcc.Graph(id='price-evolution-chart')
     ], style={'padding': '0 20px', 'marginBottom': '30px'}),
     
+    # Financial Metrics Section
+    html.Div([
+        html.Div(id='financial-metrics', style={
+            'display': 'flex',
+            'justifyContent': 'space-around',
+            'flexWrap': 'wrap',
+            'backgroundColor': colors['card_background'],
+            'borderRadius': '12px',
+            'padding': '20px',
+            'boxShadow': '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+        })
+    ], style={'padding': '0 20px', 'marginBottom': '30px'}),
+    
     html.Div([
         dash_table.DataTable(
             id='stats-table',
@@ -157,10 +172,11 @@ app.layout = html.Div([
     'padding': '20px'
 })
 
-# Define callback to update the table and chart when button is clicked.
+# Define callback to update the table, chart, and financial metrics when button is clicked.
 @app.callback(
     [Output('stats-table', 'data'),
-     Output('price-evolution-chart', 'figure')],
+     Output('price-evolution-chart', 'figure'),
+     Output('financial-metrics', 'children')],
     Input('scrape-button', 'n_clicks'),
     State('coin-input', 'value')
 )
@@ -180,7 +196,11 @@ def update_data(n_clicks, coin):
                       labels={'snapped_at': 'Date', 'price': 'Price'},
                       template='plotly_white')
         
-        return stats_df.to_dict('records'), fig
+        # Calculate financial metrics
+        metrics = calculate_financial_metrics(prices_df)
+        metrics_divs = create_metrics_display(metrics, coin)
+        
+        return stats_df.to_dict('records'), fig, metrics_divs
     
     # Run the bash script with the provided coin slug.
     try:
@@ -198,7 +218,11 @@ def update_data(n_clicks, coin):
                       labels={'snapped_at': 'Date', 'price': 'Price'},
                       template='plotly_white')
         
-        return stats_df.to_dict('records'), fig
+        # Calculate financial metrics
+        metrics = calculate_financial_metrics(prices_df)
+        metrics_divs = create_metrics_display(metrics, coin)
+        
+        return stats_df.to_dict('records'), fig, metrics_divs
     
     # After scraping, reload the CSV data.
     updated_stats_df = pd.read_csv("stats.csv")
@@ -211,7 +235,48 @@ def update_data(n_clicks, coin):
                   labels={'snapped_at': 'Date', 'price': 'Price'},
                   template='plotly_white')
     
-    return updated_stats_df.to_dict('records'), fig
+    # Calculate financial metrics
+    metrics = calculate_financial_metrics(updated_prices_df)
+    metrics_divs = create_metrics_display(metrics, coin)
+    
+    return updated_stats_df.to_dict('records'), fig, metrics_divs
+
+# Function to create metrics display
+def create_metrics_display(metrics, coin):
+    colors = {
+        'text_dark': '#1f2937',
+        'text_light': '#6b7280',
+        'primary': '#3b82f6'
+    }
+    
+    metrics_layout = []
+    for metric_name, metric_value in metrics.items():
+        metrics_layout.append(
+            html.Div([
+                html.H4(
+                    metric_name, 
+                    style={
+                        'color': colors['text_light'], 
+                        'marginBottom': '5px', 
+                        'fontSize': '0.9rem'
+                    }
+                ),
+                html.P(
+                    f'{metric_value:.2f}', 
+                    style={
+                        'color': colors['text_dark'], 
+                        'fontWeight': '600', 
+                        'fontSize': '1.2rem'
+                    }
+                )
+            ], style={
+                'textAlign': 'center', 
+                'padding': '10px', 
+                'width': '200px'
+            })
+        )
+    
+    return metrics_layout
 
 # Run the app.
 if __name__ == '__main__':
