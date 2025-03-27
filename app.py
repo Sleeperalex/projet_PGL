@@ -30,15 +30,36 @@ def save_last_coin(coin):
     except Exception as e:
         print(f"Error saving config file: {e}")
 
-# Initial load of CSV data
-stats_df = pd.read_csv("stats.csv")
-prices_df = pd.read_csv("prices.csv")
+# Check if CSV files exist, if not, run the initial script
+def initialize_data():
+    last_coin = get_last_coin()
+    
+    # Check if CSV files exist
+    if not (os.path.exists("stats.csv") and os.path.exists("prices.csv")):
+        try:
+            subprocess.run(["C:/Program Files/Git/git-bash.exe", "script.sh", last_coin], check=True)
+        except subprocess.CalledProcessError as e:
+            print("Error initializing data:", e)
+            return None, None, last_coin
 
-# Convert dates to datetime
-prices_df['snapped_at'] = pd.to_datetime(prices_df['snapped_at'])
+    # Load CSV data
+    try:
+        stats_df = pd.read_csv("stats.csv")
+        prices_df = pd.read_csv("prices.csv")
+        prices_df['snapped_at'] = pd.to_datetime(prices_df['snapped_at'])
+        return stats_df, prices_df, last_coin
+    except Exception as e:
+        print("Error loading CSV files:", e)
+        return None, None, last_coin
 
-# Get the last searched coin
-last_coin = get_last_coin()
+# Initial data load
+stats_df, prices_df, last_coin = initialize_data()
+
+# If data loading fails, provide default empty DataFrames
+if stats_df is None:
+    stats_df = pd.DataFrame()
+if prices_df is None:
+    prices_df = pd.DataFrame(columns=['snapped_at', 'price'])
 
 # Initialize the Dash app with a custom stylesheet
 app = dash.Dash(__name__, external_stylesheets=[
@@ -280,4 +301,6 @@ def create_metrics_display(metrics, coin):
 
 # Run the app.
 if __name__ == '__main__':
-    app.run(debug=True)
+    import logging
+    logging.getLogger('werkzeug').disabled = True
+    app.run(debug=False)
