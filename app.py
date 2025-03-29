@@ -37,6 +37,7 @@ def initialize_data():
     # Check if CSV files exist
     if not (os.path.exists("stats.csv") and os.path.exists("prices.csv")):
         try:
+            subprocess.run(["python", "fetch_page.py", "https://coincodex.com/crypto/" + last_coin], check=True)
             subprocess.run(["C:/Program Files/Git/git-bash.exe", "script.sh", last_coin], check=True)
         except subprocess.CalledProcessError as e:
             print("Error initializing data:", e)
@@ -225,6 +226,7 @@ def update_data(n_clicks, coin):
     
     # Run the bash script with the provided coin slug.
     try:
+        subprocess.run(["python", "fetch_page.py", "https://coincodex.com/crypto/" + coin], check=True)
         subprocess.run(["C:/Program Files/Git/git-bash.exe", "./script.sh", coin], check=True)
     except subprocess.CalledProcessError as e:
         print("Error running the script:", e)
