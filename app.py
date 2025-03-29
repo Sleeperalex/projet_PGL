@@ -33,11 +33,11 @@ def save_last_coin(coin):
 # Check if CSV files exist, if not, run the initial script
 def initialize_data():
     last_coin = get_last_coin()
-    
+
     # Check if CSV files exist
     if not (os.path.exists("stats.csv") and os.path.exists("prices.csv")):
         try:
-            subprocess.run(["C:/Program Files/Git/git-bash.exe", "script.sh", last_coin], check=True)
+            subprocess.run(["bash", "script.sh", last_coin], check=True)
         except subprocess.CalledProcessError as e:
             print("Error initializing data:", e)
             return None, None, last_coin
@@ -225,7 +225,7 @@ def update_data(n_clicks, coin):
     
     # Run the bash script with the provided coin slug.
     try:
-        subprocess.run(["C:/Program Files/Git/git-bash.exe", "./script.sh", coin], check=True)
+        subprocess.run(["bash", "./script.sh", coin], check=True)
     except subprocess.CalledProcessError as e:
         print("Error running the script:", e)
         # Return the current CSV data in case of error.
