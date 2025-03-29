@@ -13,6 +13,7 @@ START_DATE="2015-01-01"
 END_DATE=$(date +%Y-%m-%d)
 
 INPUT_FILE="page.html"
+curl -L "https://coincodex.com/crypto/$COIN" -o "$INPUT_FILE"
 
 # Create a single-line version of the file for easier processing
 SINGLE_LINE=$(tr '\n' ' ' < "$INPUT_FILE")
