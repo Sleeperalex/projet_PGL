@@ -141,7 +141,7 @@ app.layout = html.Div([
             }
         ),
         html.P(
-            "Real-time cryptocurrency data from CoinGecko",
+            "Real-time cryptocurrency data and analytics",
             style={
                 'color': colors['text_light'], 
                 'marginBottom': '10px',
