@@ -1,14 +1,24 @@
 #!/bin/bash
 
-# This script extracts text content from a specific table element without using a temp file
-# Usage: ./script.sh <coin>
+# This script extracts the prices from the CoinGecko website and statistics from the CoinCodex website
+# and saves them to CSV files.
 
-if [ "$#" -ne 1 ]; then
-    echo "Usage: $0 <coin>"
+# Read coin from config.json file
+if [ -f "config.json" ]; then
+    # Extract the coin value using grep and cut
+    COIN=$(grep -o '"coin":[^,}]*' config.json | cut -d '"' -f 4)
+    
+    if [ -z "$COIN" ]; then
+        echo "Error: Could not extract coin from config.json"
+        exit 1
+    fi
+else
+    echo "Error: config.json file not found"
     exit 1
 fi
 
-COIN="$1"
+echo "Using coin: $COIN"
+
 START_DATE="2015-01-01"
 END_DATE=$(date +%Y-%m-%d)
 
@@ -19,10 +29,10 @@ curl -L "https://coincodex.com/crypto/$COIN" -o "$INPUT_FILE"
 SINGLE_LINE=$(tr '\n' ' ' < "$INPUT_FILE")
 
 # Extract from the specific table tag to the first closing table tag
-TABLE_START=$(echo "$SINGLE_LINE" | grep -o -b "<table _ngcontent-coincodex-c876666857[^>]*>" | head -1 | cut -d: -f1)
+TABLE_START=$(echo "$SINGLE_LINE" | grep -o -b "<table _ngcontent-coincodex-c[^>]*>" | head -1 | cut -d: -f1)
 
 if [ -z "$TABLE_START" ]; then
-    echo "Error: Table with attribute _ngcontent-coincodex-c876666857 not found"
+    echo "Error: Table with attribute _ngcontent-coincodex-c not found"
     exit 1
 fi
 
@@ -94,7 +104,4 @@ FILE_NAME="prices.csv"
 # Use curl to download and save CSV
 curl -L "$URL" -o "$FILE_NAME"
 
-echo "historical data saved" 
-
-
-
+echo "historical data saved"
