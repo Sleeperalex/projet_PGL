@@ -95,8 +95,7 @@ def load_data():
         # Get last modified time of csv files
         if os.path.exists("stats.csv") and os.path.exists("prices.csv"):
             stats_mod_time = os.path.getmtime("stats.csv")
-            prices_mod_time = os.path.getmtime("prices.csv")
-            last_mod_time = max(stats_mod_time, prices_mod_time)
+            last_mod_time = stats_mod_time
             last_updated = datetime.fromtimestamp(last_mod_time).strftime('%Y-%m-%d %H:%M:%S')
         else:
             last_updated = "Unknown"
