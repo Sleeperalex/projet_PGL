@@ -95,3 +95,6 @@ FILE_NAME="prices.csv"
 curl -L "$URL" -o "$FILE_NAME"
 
 echo "historical data saved" 
+
+
+
