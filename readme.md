@@ -1,4 +1,5 @@
-# projet python git linux
+# crypto dashboard
 
-bash script that scrapes crypto data from coingeko and coincodex
-and creates a dashboard
+dashboard that updates crypto data in real time from coingecko and coincodex website.
+
+dashboard link : http://13.38.13.86:8050/
