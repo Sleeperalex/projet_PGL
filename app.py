@@ -12,7 +12,15 @@ from metrics import *
 CONFIG_FILE = 'config.json'
 
 # Function to get the last searched coin
-
+def get_last_coin():
+    try:
+        if os.path.exists(CONFIG_FILE):
+            with open(CONFIG_FILE, 'r') as f:
+                config = json.load(f)
+                return config.get('coin', 'bitcoin')
+    except Exception as e:
+        print(f"Error reading config file: {e}")
+    return 'bitcoin'
 
 # Function to save the last searched coin
 def save_last_coin(coin):
