@@ -1,18 +1,18 @@
 import dash
-from dash import html, dcc, dash_table, Input, Output, State
+from dash import html, dcc, dash_table, Input, Output, State, callback
 import pandas as pd
 import plotly.express as px
-import subprocess
 import json
 import os
+from datetime import datetime
 
 from metrics import *
 
-# Configuration file to store last searched coin
+# Configuration file to store the monitored coin
 CONFIG_FILE = 'config.json'
 
-# Function to get the last searched coin
-def get_last_coin():
+# Function to get the configured coin
+def get_configured_coin():
     try:
         if os.path.exists(CONFIG_FILE):
             with open(CONFIG_FILE, 'r') as f:
@@ -22,49 +22,100 @@ def get_last_coin():
         print(f"Error reading config file: {e}")
     return 'bitcoin'
 
-# Function to save the last searched coin
-def save_last_coin(coin):
-    try:
-        with open(CONFIG_FILE, 'w') as f:
-            json.dump({'coin': coin}, f)
-    except Exception as e:
-        print(f"Error saving config file: {e}")
+# Function to create price chart
+def create_price_chart(prices_df, coin):
+    fig = px.line(prices_df, x='snapped_at', y='price', 
+                 title=f'{coin.capitalize()} Price Evolution',
+                 labels={'snapped_at': 'Date', 'price': 'Price'},
+                 template='plotly_white')
+    
+    fig.update_layout(
+        xaxis=dict(
+            title='Date',
+            tickfont=dict(size=14),
+            showgrid=True,
+            gridcolor='lightgray',
+        ),
+        yaxis=dict(
+            title='Price (USD)',
+            tickfont=dict(size=14),
+            showgrid=True,
+            gridcolor='lightgray',
+        ),
+        plot_bgcolor='white',
+        margin=dict(l=40, r=40, t=50, b=40),
+    )
+    return fig
 
-# Check if CSV files exist, if not, run the initial script
-def initialize_data():
-    last_coin = get_last_coin()
+# Function to create metrics display
+def create_metrics_display(metrics, coin):
+    colors = {
+        'text_dark': '#1f2937',
+        'text_light': '#6b7280',
+        'primary': '#3b82f6'
+    }
+    
+    metrics_layout = []
+    for metric_name, metric_value in metrics.items():
+        metrics_layout.append(
+            html.Div([
+                html.H4(
+                    metric_name, 
+                    style={
+                        'color': colors['text_light'], 
+                        'marginBottom': '5px', 
+                        'fontSize': '0.9rem'
+                    }
+                ),
+                html.P(
+                    f'{metric_value:.2f}', 
+                    style={
+                        'color': colors['text_dark'], 
+                        'fontWeight': '600', 
+                        'fontSize': '1.2rem'
+                    }
+                )
+            ], style={
+                'textAlign': 'center', 
+                'padding': '10px', 
+                'width': '200px'
+            })
+        )
+    
+    return metrics_layout
 
-    # Check if CSV files exist
-    if not (os.path.exists("stats.csv") and os.path.exists("prices.csv")):
-        try:
-            subprocess.run(["bash", "script.sh", last_coin], check=True)
-        except subprocess.CalledProcessError as e:
-            print("Error initializing data:", e)
-            return None, None, last_coin
-
-    # Load CSV data
+# Load CSV data
+def load_data():
+    coin = get_configured_coin()
     try:
         stats_df = pd.read_csv("stats.csv")
         prices_df = pd.read_csv("prices.csv")
         prices_df['snapped_at'] = pd.to_datetime(prices_df['snapped_at'])
-        return stats_df, prices_df, last_coin
+        
+        # Get last modified time of csv files
+        if os.path.exists("stats.csv") and os.path.exists("prices.csv"):
+            stats_mod_time = os.path.getmtime("stats.csv")
+            prices_mod_time = os.path.getmtime("prices.csv")
+            last_mod_time = max(stats_mod_time, prices_mod_time)
+            last_updated = datetime.fromtimestamp(last_mod_time).strftime('%Y-%m-%d %H:%M:%S')
+        else:
+            last_updated = "Unknown"
+            
+        return stats_df, prices_df, coin, last_updated
     except Exception as e:
-        print("Error loading CSV files:", e)
-        return None, None, last_coin
+        print(f"Error loading CSV files: {e}")
+        return pd.DataFrame(), pd.DataFrame(columns=['snapped_at', 'price']), coin, "Error loading data"
 
 # Initial data load
-stats_df, prices_df, last_coin = initialize_data()
-
-# If data loading fails, provide default empty DataFrames
-if stats_df is None:
-    stats_df = pd.DataFrame()
-if prices_df is None:
-    prices_df = pd.DataFrame(columns=['snapped_at', 'price'])
+stats_df, prices_df, configured_coin, last_updated = load_data()
 
 # Initialize the Dash app with a custom stylesheet
 app = dash.Dash(__name__, external_stylesheets=[
     'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap'
 ])
+
+# Set up app to be deployed as a WSGI application
+server = app.server
 
 # Color palette
 colors = {
@@ -80,7 +131,8 @@ colors = {
 app.layout = html.Div([
     html.Div([
         html.H1(
-            "Cryptocurrency Dashboard", 
+            id='dashboard-title',
+            children=f"{configured_coin.capitalize()} Dashboard", 
             style={
                 'color': colors['text_dark'], 
                 'fontWeight': '600', 
@@ -92,66 +144,64 @@ app.layout = html.Div([
             "Real-time cryptocurrency data from CoinGecko",
             style={
                 'color': colors['text_light'], 
-                'marginBottom': '30px',
+                'marginBottom': '10px',
                 'fontSize': '1rem'
             }
-        )
+        ),
+        html.P(
+            f"Last updated: {last_updated}",
+            id='last-updated',
+            style={
+                'color': colors['primary'], 
+                'marginBottom': '30px',
+                'fontSize': '0.9rem',
+                'fontWeight': '600'
+            }
+        ),
+        # Refresh button
+        html.Button(
+            "Refresh Dashboard", 
+            id='refresh-button',
+            style={
+                'backgroundColor': colors['primary'], 
+                'color': 'white',
+                'border': 'none',
+                'padding': '10px 20px',
+                'borderRadius': '8px',
+                'cursor': 'pointer',
+                'fontWeight': '600',
+                'marginBottom': '20px'
+            }
+        ),
+        # Store for last refresh state
+        dcc.Store(id='refresh-state'),
+        # Meta refresh tag for automatic reloading
+        html.Meta(httpEquiv="refresh", content="300")  # Refresh every 5 minutes
     ], style={'textAlign': 'center', 'padding': '20px'}),
-    
-    html.Div([
-        html.Div([
-            dcc.Input(
-                id='coin-input',
-                type='text',
-                placeholder='Enter coin slug (e.g., bitcoin)',
-                value=last_coin,  # Use last searched coin as default
-                style={
-                    'width': '300px', 
-                    'padding': '10px',
-                    'borderRadius': '8px',
-                    'border': f'1px solid {colors["border"]}',
-                    'marginRight': '15px'
-                }
-            ),
-            html.Button(
-                "Fetch Data", 
-                id='scrape-button', 
-                n_clicks=0,
-                style={
-                    'backgroundColor': colors['primary'], 
-                    'color': 'white',
-                    'border': 'none',
-                    'padding': '10px 20px',
-                    'borderRadius': '8px',
-                    'cursor': 'pointer',
-                    'fontWeight': '600',
-                    'transition': 'background-color 0.3s'
-                }
-            )
-        ], style={
-            'display': 'flex', 
-            'justifyContent': 'center', 
-            'alignItems': 'center',
-            'marginBottom': '30px'
-        })
-    ]),
     
     # Price Evolution Chart
     html.Div([
-        dcc.Graph(id='price-evolution-chart')
+        dcc.Graph(
+            id='price-evolution-chart',
+            figure=create_price_chart(prices_df, configured_coin)
+        )
     ], style={'padding': '0 20px', 'marginBottom': '30px'}),
     
     # Financial Metrics Section
     html.Div([
-        html.Div(id='financial-metrics', style={
-            'display': 'flex',
-            'justifyContent': 'space-around',
-            'flexWrap': 'wrap',
-            'backgroundColor': colors['card_background'],
-            'borderRadius': '12px',
-            'padding': '20px',
-            'boxShadow': '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
-        })
+        html.Div(
+            create_metrics_display(calculate_financial_metrics(prices_df), configured_coin),
+            id='financial-metrics',
+            style={
+                'display': 'flex',
+                'justifyContent': 'space-around',
+                'flexWrap': 'wrap',
+                'backgroundColor': colors['card_background'],
+                'borderRadius': '12px',
+                'padding': '20px',
+                'boxShadow': '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+            }
+        )
     ], style={'padding': '0 20px', 'marginBottom': '30px'}),
     
     html.Div([
@@ -193,115 +243,44 @@ app.layout = html.Div([
     'padding': '20px'
 })
 
-# Define callback to update the table, chart, and financial metrics when button is clicked.
+# Callback for refresh button - reload data and update components
 @app.callback(
-    [Output('stats-table', 'data'),
-     Output('price-evolution-chart', 'figure'),
-     Output('financial-metrics', 'children')],
-    Input('scrape-button', 'n_clicks'),
-    State('coin-input', 'value')
+    [
+        Output('refresh-state', 'data'),
+        Output('last-updated', 'children'),
+        Output('price-evolution-chart', 'figure'),
+        Output('financial-metrics', 'children'),
+        Output('stats-table', 'data'),
+        Output('dashboard-title', 'children')
+    ],
+    Input('refresh-button', 'n_clicks'),
+    prevent_initial_call=True
 )
-def update_data(n_clicks, coin):
-    # Save the last searched coin
-    save_last_coin(coin)
-    
-    if n_clicks is None or n_clicks == 0:
-        # Return the initial data if button hasn't been clicked.
-        stats_df = pd.read_csv("stats.csv")
-        prices_df = pd.read_csv("prices.csv")
-        prices_df['snapped_at'] = pd.to_datetime(prices_df['snapped_at'])
-        
-        # Create price evolution chart
-        fig = px.line(prices_df, x='snapped_at', y='price', 
-                      title=f'{coin.capitalize()} Price Evolution',
-                      labels={'snapped_at': 'Date', 'price': 'Price'},
-                      template='plotly_white')
-        
-        # Calculate financial metrics
-        metrics = calculate_financial_metrics(prices_df)
-        metrics_divs = create_metrics_display(metrics, coin)
-        
-        return stats_df.to_dict('records'), fig, metrics_divs
-    
-    # Run the bash script with the provided coin slug.
-    try:
-        subprocess.run(["bash", "./script.sh", coin], check=True)
-    except subprocess.CalledProcessError as e:
-        print("Error running the script:", e)
-        # Return the current CSV data in case of error.
-        stats_df = pd.read_csv("stats.csv")
-        prices_df = pd.read_csv("prices.csv")
-        prices_df['snapped_at'] = pd.to_datetime(prices_df['snapped_at'])
-        
-        # Create price evolution chart
-        fig = px.line(prices_df, x='snapped_at', y='price', 
-                      title=f'{coin.capitalize()} Price Evolution',
-                      labels={'snapped_at': 'Date', 'price': 'Price'},
-                      template='plotly_white')
-        
-        # Calculate financial metrics
-        metrics = calculate_financial_metrics(prices_df)
-        metrics_divs = create_metrics_display(metrics, coin)
-        
-        return stats_df.to_dict('records'), fig, metrics_divs
-    
-    # After scraping, reload the CSV data.
-    updated_stats_df = pd.read_csv("stats.csv")
-    updated_prices_df = pd.read_csv("prices.csv")
-    updated_prices_df['snapped_at'] = pd.to_datetime(updated_prices_df['snapped_at'])
-    
-    # Create price evolution chart
-    fig = px.line(updated_prices_df, x='snapped_at', y='price', 
-                  title=f'{coin.capitalize()} Price Evolution',
-                  labels={'snapped_at': 'Date', 'price': 'Price'},
-                  template='plotly_white')
+def refresh_data(n_clicks):
+    # Reload all data from CSV files
+    stats_df, prices_df, coin, last_updated = load_data()
     
     # Calculate financial metrics
-    metrics = calculate_financial_metrics(updated_prices_df)
-    metrics_divs = create_metrics_display(metrics, coin)
+    metrics = calculate_financial_metrics(prices_df)
     
-    return updated_stats_df.to_dict('records'), fig, metrics_divs
-
-# Function to create metrics display
-def create_metrics_display(metrics, coin):
-    colors = {
-        'text_dark': '#1f2937',
-        'text_light': '#6b7280',
-        'primary': '#3b82f6'
-    }
+    # Create updated chart
+    fig = create_price_chart(prices_df, coin)
     
-    metrics_layout = []
-    for metric_name, metric_value in metrics.items():
-        metrics_layout.append(
-            html.Div([
-                html.H4(
-                    metric_name, 
-                    style={
-                        'color': colors['text_light'], 
-                        'marginBottom': '5px', 
-                        'fontSize': '0.9rem'
-                    }
-                ),
-                html.P(
-                    f'{metric_value:.2f}', 
-                    style={
-                        'color': colors['text_dark'], 
-                        'fontWeight': '600', 
-                        'fontSize': '1.2rem'
-                    }
-                )
-            ], style={
-                'textAlign': 'center', 
-                'padding': '10px', 
-                'width': '200px'
-            })
-        )
+    # Create updated metrics display
+    metrics_display = create_metrics_display(metrics, coin)
     
-    return metrics_layout
+    # Return all updated components
+    return (
+        {"refreshed": True},  # Store refresh state
+        f"Last updated: {last_updated}",  # Update timestamp
+        fig,  # Update price chart
+        metrics_display,  # Update metrics
+        stats_df.to_dict('records'),  # Update table data
+        f"{coin.capitalize()} Dashboard"  # Update title with current coin
+    )
 
 # Run the app.
 if __name__ == '__main__':
     import logging
     logging.getLogger('werkzeug').disabled = True
-    app.run(debug=False) 
-     
+    app.run(port=8050, debug=False)
