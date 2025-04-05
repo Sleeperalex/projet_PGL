@@ -3,6 +3,8 @@
 # This script extracts the prices from the CoinGecko website and statistics from the CoinCodex website
 # and saves them to CSV files.
 
+echo "Script run at: $(date)"
+
 # Read coin from config.json file
 if [ -f "config.json" ]; then
     # Extract the coin value using grep and cut
