@@ -22,6 +22,7 @@ def calculate_financial_metrics(prices_df : pd.DataFrame):
     }
     
     return metrics
+    
 
 # Function to calculate Maximum Drawdown
 def calculate_max_drawdown(price_series):
@@ -29,4 +30,3 @@ def calculate_max_drawdown(price_series):
     drawdown = (price_series - cumulative_max) / cumulative_max
     return drawdown.min() * 100 
 
-    
