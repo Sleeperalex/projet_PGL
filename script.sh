@@ -94,4 +94,4 @@ FILE_NAME="prices.csv"
 # Use curl to download and save CSV
 curl -L "$URL" -o "$FILE_NAME"
 
-echo "historical data saved"
+echo "historical data saved" 
