@@ -1,5 +1,5 @@
 import dash
-from dash import html, dcc, dash_table, Input, Output, State, callback
+from dash import html, dcc, dash_table, Input, Output, callback
 import pandas as pd
 import plotly.express as px
 import json
@@ -127,7 +127,7 @@ colors = {
     'border': '#e5e7eb'
 }
 
-# Custom styles
+# Custom styles and layout without the refresh button.
 app.layout = html.Div([
     html.Div([
         html.H1(
@@ -158,25 +158,12 @@ app.layout = html.Div([
                 'fontWeight': '600'
             }
         ),
-        # Refresh button
-        html.Button(
-            "Refresh Dashboard", 
-            id='refresh-button',
-            style={
-                'backgroundColor': colors['primary'], 
-                'color': 'white',
-                'border': 'none',
-                'padding': '10px 20px',
-                'borderRadius': '8px',
-                'cursor': 'pointer',
-                'fontWeight': '600',
-                'marginBottom': '20px'
-            }
-        ),
-        # Store for last refresh state
-        dcc.Store(id='refresh-state'),
-        # Meta refresh tag for automatic reloading
-        html.Meta(httpEquiv="refresh", content="300")  # Refresh every 5 minutes
+        # Interval component to update the dashboard every 10 seconds
+        dcc.Interval(
+            id='interval-component',
+            interval=10000,
+            n_intervals=0
+        )
     ], style={'textAlign': 'center', 'padding': '20px'}),
     
     # Price Evolution Chart
@@ -243,20 +230,18 @@ app.layout = html.Div([
     'padding': '20px'
 })
 
-# Callback for refresh button - reload data and update components
+# Callback for auto-updating the dashboard using the Interval component.
 @app.callback(
     [
-        Output('refresh-state', 'data'),
         Output('last-updated', 'children'),
         Output('price-evolution-chart', 'figure'),
         Output('financial-metrics', 'children'),
         Output('stats-table', 'data'),
         Output('dashboard-title', 'children')
     ],
-    Input('refresh-button', 'n_clicks'),
-    prevent_initial_call=True
+    Input('interval-component', 'n_intervals')
 )
-def refresh_data(n_clicks):
+def refresh_data(n_intervals):
     # Reload all data from CSV files
     stats_df, prices_df, coin, last_updated = load_data()
     
@@ -271,16 +256,15 @@ def refresh_data(n_clicks):
     
     # Return all updated components
     return (
-        {"refreshed": True},  # Store refresh state
         f"Last updated: {last_updated}",  # Update timestamp
-        fig,  # Update price chart
-        metrics_display,  # Update metrics
-        stats_df.to_dict('records'),  # Update table data
-        f"{coin.capitalize()} Dashboard"  # Update title with current coin
+        fig,                              # Update price chart
+        metrics_display,                  # Update metrics
+        stats_df.to_dict('records'),      # Update table data
+        f"{coin.capitalize()} Dashboard"   # Update title with current coin
     )
 
 # Run the app.
 if __name__ == '__main__':
     import logging
     logging.getLogger('werkzeug').disabled = True
-    app.run(host='0.0.0.0', port=8050, debug=False)
+    app.run(port=8050, debug=False)
