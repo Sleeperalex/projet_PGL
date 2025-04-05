@@ -3,22 +3,17 @@
 # This script extracts the prices from the CoinGecko website and statistics from the CoinCodex website
 # and saves them to CSV files.
 
-# Get the directory of the script
-DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# Path to config.json
-CONFIG_FILE="$DIR/config.json"
-
 # Read coin from config.json file
-if [ -f "$CONFIG_FILE" ]; then
-    COIN=$(grep -o '"coin":[^,}]*' "$CONFIG_FILE" | cut -d '"' -f 4)
-
+if [ -f "config.json" ]; then
+    # Extract the coin value using grep and cut
+    COIN=$(grep -o '"coin":[^,}]*' config.json | cut -d '"' -f 4)
+    
     if [ -z "$COIN" ]; then
         echo "Error: Could not extract coin from config.json"
         exit 1
     fi
 else
-    echo "Error: config.json file not found at $CONFIG_FILE"
+    echo "Error: config.json file not found"
     exit 1
 fi
 
