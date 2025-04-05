@@ -303,4 +303,5 @@ def create_metrics_display(metrics, coin):
 if __name__ == '__main__':
     import logging
     logging.getLogger('werkzeug').disabled = True
-    app.run(debug=False)
+    app.run(debug=False) 
+    
